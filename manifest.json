@@ -1,0 +1,18 @@
+{
+    "name": "Weather application",
+    "short_name": "WeatherApp",
+    "lang": "en-us",
+    "description": "Application about weather",
+    "start_url": "/index.html",
+    "display": "standalone",
+    "theme_color": "#313131",
+    "background_color": "#212121",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/icons/favicon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
