@@ -1,16 +1,15 @@
-//pro práci offline a ukládání do cache
-
 const CACHE_NAME = 'cache';
 const cacheAssets = [
   '/',
   '/index.html',
   '/style.css',
   '/app.js',
-  '/icons/favicon.png'
+  '/icon-192.png',
+  '/icon-512.png'
 ];
-
+ 
 const WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather";
-
+ 
 self.addEventListener('install', event => {
   console.log("Service Worker installed");
   event.waitUntil(
@@ -20,7 +19,7 @@ self.addEventListener('install', event => {
     })
   );
 });
-
+ 
 self.addEventListener('activate', event => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
@@ -35,38 +34,31 @@ self.addEventListener('activate', event => {
     })
   );
 });
-
-self.addEventListener('fetch', event => {
-  if (event.request.url.startsWith(WEATHER_API_URL)) {
-    // Cacheování API odpovědí
-    event.respondWith(
-      caches.open(CACHE_NAME).then(cache => {
-        return fetch(event.request)
-          .then(networkResponse => {
-            cache.put(event.request, networkResponse.clone());
+ 
+self.addEventListener('fetch', function(evt) {
+  const url = new URL(evt.request.url);
+ 
+  if(url.origin === 'https://api.openweather.org') {
+    evt.respondWith(
+      fetch(evt.request)
+      .then(networkResponse => {
+        if (networkResponse.status ===200) {
+          return caches.open(DATA_CHANCE_NAME).then(cache => {
+            cache.put(evt.request, networkResponse.clone());
             return networkResponse;
-          })
-          .catch(() => {
-            return cache.match(event.request).then(cachedResponse => {
-              if (cachedResponse) {
-                return cachedResponse;
-              } else {
-                return new Response(JSON.stringify({
-                  message: "Jste offline a nemáme žádná uložená data"
-                }), {
-                  headers: { 'Content-Type': 'application/json' }
-                });
-              }
-            });
           });
+        }
+        return caches.match(evt.request);
+      })
+      .catch(() => {
+        return caches.match(evt.request);
       })
     );
-  } else {
-    // Pro jiné požadavky než API odpovídáme ze sítě nebo z cache
-    event.respondWith(
-      caches.match(event.request).then(cachedResponse => {
-        return cachedResponse || fetch(event.request);
-      })
-    );
+    return;
   }
+  evt.respondWith(
+    caches.match(evt.request).then(response => {
+      return response || fetch(evt.request);
+    })
+  );
 });
