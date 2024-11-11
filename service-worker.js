@@ -1,61 +1,75 @@
-const CACHE_NAME = 'cache';
-const cacheAssets = [
+// sw.js
+
+const CACHE_NAME = 'my-site-cache-v1';
+const DATA_CACHE_NAME = 'data-cache-v1';
+
+// Seznam statickĂ˝ch souborĹŻ k uloĹľenĂ­ do cache bÄ›hem instalace
+const FILES_TO_CACHE = [
   '/',
   '/index.html',
-  '/style.css',
   '/app.js',
+  '/style.css',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  '/manifest.json'
 ];
- 
-const WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather";
- 
-self.addEventListener('install', event => {
-  console.log("Service Worker installed");
-  event.waitUntil(
+
+// Instalace Service Workera a uloĹľenĂ­ statickĂ˝ch souborĹŻ do cache
+self.addEventListener('install', function(evt) {
+  evt.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      console.log("Precaching static assets");
-      return cache.addAll(cacheAssets); // Předcacheování souborů
+      console.log('Soubory jsou uklĂˇdĂˇny do cache');
+      return cache.addAll(FILES_TO_CACHE);
     })
   );
+  self.skipWaiting();
 });
- 
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
+
+// Aktivace Service Workera a odstranÄ›nĂ­ starĂ˝ch cache
+self.addEventListener('activate', function(evt) {
+  evt.waitUntil(
+    caches.keys().then(keyList => {
       return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
+        keyList.map(key => {
+          if (key !== CACHE_NAME && key !== DATA_CACHE_NAME) {
+            console.log('OdstraĹovĂˇnĂ­ starĂ© cache', key);
+            return caches.delete(key);
           }
         })
       );
     })
   );
+  self.clients.claim();
 });
- 
+
+// ZachytĂˇvĂˇnĂ­ a obsluha fetch udĂˇlostĂ­
 self.addEventListener('fetch', function(evt) {
   const url = new URL(evt.request.url);
- 
-  if(url.origin === 'https://api.openweather.org') {
+
+  // Kontrola, zda je poĹľadavek smÄ›rovĂˇn na OpenWeatherMap API
+  if (url.origin === 'https://api.openweathermap.org') {
     evt.respondWith(
       fetch(evt.request)
-      .then(networkResponse => {
-        if (networkResponse.status ===200) {
-          return caches.open(DATA_CHANCE_NAME).then(cache => {
-            cache.put(evt.request, networkResponse.clone());
-            return networkResponse;
-          });
-        }
-        return caches.match(evt.request);
-      })
-      .catch(() => {
-        return caches.match(evt.request);
-      })
+        .then(networkResponse => {
+          // Pokud je odpovÄ›ÄŹ ĂşspÄ›ĹˇnĂˇ, uloĹľ ji do cache a vraĹĄ uĹľivateli
+          if (networkResponse.status === 200) {
+            return caches.open(DATA_CACHE_NAME).then(cache => {
+              cache.put(evt.request, networkResponse.clone());
+              return networkResponse;
+            });
+          }
+          // Pokud nenĂ­ odpovÄ›ÄŹ ĂşspÄ›ĹˇnĂˇ, pokus se zĂ­skat data z cache
+          return caches.match(evt.request);
+        })
+        .catch(() => {
+          // Pokud sĂ­ĹĄovĂ˝ poĹľadavek selĹľe (napĹ™. offline), vraĹĄ data z cache
+          return caches.match(evt.request);
+        })
     );
     return;
   }
+
+  // Obsluha ostatnĂ­ch poĹľadavkĹŻ (statickĂ© soubory)
   evt.respondWith(
     caches.match(evt.request).then(response => {
       return response || fetch(evt.request);
